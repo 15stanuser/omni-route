@@ -1,6 +1,6 @@
 {
   "name": "omni-route",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Omni Route - Universal API Proxy/Routing Service",
   "main": "server.js",
   "scripts": {
