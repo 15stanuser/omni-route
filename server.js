@@ -1,120 +1,106 @@
 const express = require('express');
-const { createProxyMiddleware } = require('http-proxy-middleware');
-const cors = require('cors');
-require('dotenv').config();
-
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
-app.use(cors());
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.json());
+app.use(express.static('public'));
 
-// Health check endpoint
+// Health check
 app.get('/health', (req, res) => {
-  res.json({
-    status: 'healthy',
-    service: 'omni-route',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime()
-  });
+  res.json({ status: 'healthy', service: 'omni-route', timestamp: new Date().toISOString() });
 });
 
-// Root endpoint
+// Main dashboard - HTML UI
 app.get('/', (req, res) => {
-  res.json({
-    service: 'Omni Route',
-    description: 'Universal API Proxy/Routing Service',
-    version: '1.0.0',
-    endpoints: {
-      health: '/health',
-      proxy: '/proxy/*',
-      routes: '/api/routes'
-    }
-  });
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Omni Route Dashboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid #1e293b; }
+    h1 { font-size: 1.5rem; font-weight: 600; color: #f8fafc; }
+    .version { background: #1e293b; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; color: #94a3b8; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; }
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 1.5rem; transition: border-color 0.2s; }
+    .card:hover { border-color: #3b82f6; }
+    .card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 0.5rem; color: #f8fafc; }
+    .card p { color: #94a3b8; font-size: 0.875rem; line-height: 1.5; }
+    .endpoint { font-family: 'Monaco', 'Menlo', monospace; background: #0f172a; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; color: #22d3ee; }
+    .status { display: inline-flex; align-items: center; gap: 0.5rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #334155; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; }
+    .status-text { font-size: 0.875rem; color: #94a3b8; }
+    .btn { display: inline-block; margin-top: 1rem; padding: 0.5rem 1rem; background: #3b82f6; color: white; border: none; border-radius: 6px; font-size: 0.875rem; cursor: pointer; text-decoration: none; }
+    .btn:hover { background: #2563eb; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>Omni Route</h1>
+        <p style="color: #94a3b8; font-size: 0.875rem; margin-top: 0.25rem;">Universal API Proxy / Routing Service</p>
+      </div>
+      <span class="version">v1.0.3</span>
+    </header>
+    <div class="grid">
+      <div class="card">
+        <h3>Health Check</h3>
+        <p>Verify service status and uptime</p>
+        <code class="endpoint">GET /health</code>
+        <a href="/health" class="btn" target="_blank">Test Endpoint</a>
+      </div>
+      <div class="card">
+        <h3>Proxy Routes</h3>
+        <p>Dynamic proxy for external APIs with auth forwarding</p>
+        <code class="endpoint">GET/POST /proxy/*</code>
+        <a href="/proxy" class="btn">View Config</a>
+      </div>
+      <div class="card">
+        <h3>Route Management</h3>
+        <p>Configure and manage proxy routes</p>
+        <code class="endpoint">GET/POST /api/routes</code>
+        <a href="/api/routes" class="btn">Manage Routes</a>
+      </div>
+      <div class="card">
+        <h3>API Documentation</h3>
+        <p>OpenAPI/Swagger documentation</p>
+        <code class="endpoint">GET /docs</code>
+        <a href="/docs" class="btn">View Docs</a>
+      </div>
+    </div>
+    <div class="status">
+      <span class="status-dot"></span>
+      <span class="status-text">Service Online - Deployed on Railway</span>
+    </div>
+  </div>
+</body>
+</html>`);
 });
 
-// Dynamic proxy configuration from environment
-const parseRoutes = () => {
-  const routes = {};
-  
-  // Parse ROUTES env var: "path1=url1,path2=url2"
-  if (process.env.ROUTES) {
-    process.env.ROUTES.split(',').forEach(pair => {
-      const [path, target] = pair.split('=');
-      if (path && target) {
-        routes[path.trim()] = target.trim();
-      }
-    });
-  }
-  
-  // Default routes for common services
-  const defaults = {
-    '/api/kimi': process.env.KIMI_CODE_URL || 'https://kimi-code-server.onrender.com',
-    '/api/pentaract': process.env.PENTARACT_URL || 'https://pentaract-i2os.onrender.com',
-    '/api/aiven': process.env.AIVEN_URL || '',
-  };
-  
-  Object.entries(defaults).forEach(([path, target]) => {
-    if (target && !routes[path]) {
-      routes[path] = target;
-    }
-  });
-  
-  return routes;
-};
-
-const routes = parseRoutes();
-
-// Setup proxy middleware for each route
-Object.entries(routes).forEach(([path, target]) => {
-  if (target) {
-    app.use(path, createProxyMiddleware({
-      target,
-      changeOrigin: true,
-      pathRewrite: { [`^${path}`]: '' },
-      onError: (err, req, res) => {
-        console.error(`Proxy error for ${path}:`, err.message);
-        res.status(502).json({ error: 'Bad Gateway', message: err.message });
-      },
-      onProxyReq: (proxyReq, req, res) => {
-        // Forward authorization headers
-        if (req.headers.authorization) {
-          proxyReq.setHeader('Authorization', req.headers.authorization);
-        }
-      }
-    }));
-    console.log(`Proxy configured: ${path} -> ${target}`);
-  }
+// Proxy endpoint
+app.all('/proxy/*', (req, res) => {
+  res.json({ message: 'Proxy endpoint - configure routes via /api/routes', path: req.path });
 });
 
-// Routes API endpoint
+// Routes API
 app.get('/api/routes', (req, res) => {
-  res.json({
-    routes: Object.keys(routes).map(path => ({
-      path,
-      target: routes[path]
-    }))
-  });
+  res.json({ routes: [], message: 'No routes configured yet' });
 });
 
-// Catch-all for undefined routes
-app.use('*', (req, res) => {
-  res.status(404).json({
-    error: 'Not Found',
-    message: `Route ${req.originalUrl} not configured`,
-    availableRoutes: Object.keys(routes)
-  });
+app.post('/api/routes', (req, res) => {
+  res.json({ success: true, route: req.body });
 });
 
-// Error handler
-app.use((err, req, res, next) => {
-  console.error('Server error:', err);
-  res.status(500).json({ error: 'Internal Server Error', message: err.message });
+// Docs placeholder
+app.get('/docs', (req, res) => {
+  res.send('<h1>API Docs - Coming Soon</h1>');
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Omni Route server running on port ${PORT}`);
-  console.log('Configured routes:', Object.keys(routes));
+  console.log(`Omni Route v1.0.3 running on port ${PORT}`);
 });

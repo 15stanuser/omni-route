@@ -1,17 +1,13 @@
 {
   "name": "omni-route",
-  "version": "1.0.0",
-  "description": "Omni Route - Universal API Proxy/Routing Service",
+  "version": "1.0.3",
+  "description": "Universal API Proxy/Routing Service",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
+    "start": "node server.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "http-proxy-middleware": "^2.0.6",
-    "cors": "^2.8.5",
-    "dotenv": "^16.3.1"
+    "express": "^4.18.2"
   },
   "engines": {
     "node": ">=18.0.0"
