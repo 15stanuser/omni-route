@@ -1,0 +1,11 @@
+[phases.setup]
+nixPkgs = ["nodejs_20"]
+
+[hpases.install]
+cmds = ["nmp ci"]
+
+[hpases.build]
+cmds = ["echo 'No buil step needed'"]
+
+[start]
+cmd = "node server.js"
