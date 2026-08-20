@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: omni-route
+    env: node
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /
+    plan: free
+    autoDeploy: true
